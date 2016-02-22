@@ -31,4 +31,47 @@ Usage of goasyncwebclient.exe:
 *  -rampToFail
         default true and if true will ramp up the connections until first fail (default true)
 
+## Examples
+Suppose you have an ngix server listening on port 80 on a linux local host you could invoke goasyncwebclient with no arguments as:-
+```
+ ./goasyncwebclient
+
+trialConcurrent=1 go look at file /tmp/goout  data speed=546.245283 KiB/s request rate=913.979035 Request/s
+Test ended
+```
+To see the detail of the request respose lets cat the log file.
+```
+ cat /tmp/goout
+ackmillis=0 recmillis=1 http://127.0.0.1:80/ status: 200 OK
+```
+We see the url and the http status code 200. We see that the response was in 1 millisecond or less.
+Now lets try with 600 simulated users.
+```
+ ./goasyncwebclient -c=600 -minc=600 -n=600
+
+trialConcurrent=600 go look at file /tmp/goout  data speed=3028.152633 KiB/s request rate=5066.712902 Request/s
+Test ended
+```
+Its all still good and the response time is still good as we can see by looking at the last few lines in the log.
+```
+tail -n 4 /tmp/goout
+ackmillis=80 recmillis=80 http://127.0.0.1:80/ status: 200 OK
+
+ackmillis=75 recmillis=75 http://127.0.0.1:80/ status: 200 OK
+```
+However this was actually at the limit which we see as we can let the program try 20% more connections each time starting an minc=300 and maximum c=9000. (It will stop as soon as there is an error or slowresponse).
+```
+./goasyncwebclient -c=9000 -minc=300 -n=9000
+
+trialConcurrent=300 go look at file /tmp/goout  data speed=3731.619166 KiB/s request rate=6243.754944 Request/s
+trialConcurrent=360 go look at file /tmp/goout  data speed=3883.965221 KiB/s request rate=6498.660761 Request/s
+trialConcurrent=432 go look at file /tmp/goout  data speed=3409.761651 KiB/s request rate=5705.222109 Request/s
+trialConcurrent=518 go look at file /tmp/goout  data speed=3407.418378 KiB/s request rate=5701.301339 Request/s
+trialConcurrent=621 go look at file /tmp/goout  data speed=3154.072111 KiB/s request rate=5277.401702 Request/s
+was an ERROR
+
+Test ended
+```
+
+
 
