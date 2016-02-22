@@ -116,8 +116,20 @@ was TOO SLOW (> acktimeout=4000)
 Test ended
 ```
 So a mere 16 active users can push this sites response times past 4 seconds.
+## Caveats
+The program truely uses a unique connection and source port for each simulated user and it is easy to run out of open file handles. A default limit for windows might be 7000 and for linux 1000 so some changes of your OS limits may be desirable. E.g. on linux add some lines to /etc/security/limits.conf
+```
+* soft nofile 100000
 
-
-
+* hard nofile 100000
+```
+Even with such changes the client source port range for the whole machine may be limited to 30000 or so. Also a finished tcp connection is not immediately available for reuse for a couple of minutes so repeated runs may still run out of connections.
+For linux clients and servers some changes to /etc/sysctl.conf might be useful.
+```
+net.ipv4.tcp_max_syn_backlog = 16384
+net.core.somaxconn = 16384
+net.core.netdev_max_backlog = 16384
+net.ipv4.ip_local_port_range = 18000    65535
+```
 
 
