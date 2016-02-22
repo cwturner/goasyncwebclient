@@ -39,7 +39,7 @@ Suppose you have an ngix server listening on port 80 on a linux local host you c
 trialConcurrent=1 go look at file /tmp/goout  data speed=546.245283 KiB/s request rate=913.979035 Request/s
 Test ended
 ```
-To see the detail of the request respose lets cat the log file.
+To see the detail of the request response let's cat the log file.
 ```
  cat /tmp/goout
 ackmillis=0 recmillis=1 http://127.0.0.1:80/ status: 200 OK
@@ -72,6 +72,28 @@ was an ERROR
 
 Test ended
 ```
+This was a disappointing limit as the speed was still good. It turned out that a default configuration of nginx was the problem and adding more configuration to nginx.conf fixed the problem.
+```
+events {
+    worker_connections  30000;
+}
+```
+Now a repeat test (starting at 7000 connections) gave:-
+```
+ ./goasyncwebclient -c=30000 -minc=7000 -n=30000
+...........
+trialConcurrent=7000 go look at file /tmp/goout  data speed=2243.497760 KiB/s request rate=3753.826318 Request/s.....
+trialConcurrent=8400 go look at file /tmp/goout  data speed=2857.678926 KiB/s request rate=4781.475849 Request/s......
+trialConcurrent=10080 go look at file /tmp/goout  data speed=2762.223186 KiB/s request rate=4621.759056 Request/s
+was TOO SLOW (> acktimeout=2000)
+
+Test ended
+```
+So it no longer fails with an error but merely gets too slow at 10000 simulated users.
+
+
+
+
 
 
 
