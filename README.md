@@ -91,7 +91,31 @@ Test ended
 ```
 So it no longer fails with an error but merely gets too slow at 10000 simulated users.
 
+Now to demonstrate the https to an external site we change the protocol, port and add a domain and path and in the results we see this site sets a cookie and is clearly a PHP site.
+```
+ ./goasyncwebclient -c=1 -minc=1 -n=1 -protocol=https:// -port=443 -domain=www.gladstonebrookes.co.uk -path=/online-claim-form/
+.............................
+trialConcurrent=1 go look at file /tmp/goout  data speed=24.584313 KiB/s request rate=0.683324 Request/s
+Test ended
+chris.turner@CT-LIN-1:~/work/bin$ cat /tmp/goout
+ackmillis=1245 recmillis=1463 https://www.gladstonebrookes.co.uk:443/online-claim-form/ status: 200 OK
+__cfduid=dc746905066c170c8e4f7e485723877a31456146462; Path=/; Domain=gladstonebrookes.co.uk; HttpOnly
+PHPSESSID=72ca1440a84b3909ab49eee50e811f07; Path=/
+Source=Direct; Path=/; Expires=Wed, 23 Mar 2016 13:07:43 GMT
+```
+This site is already slow at 1.4 seconds so lets increase the timeout to 4 seconds and see how may users it can take.
+```
+./goasyncwebclient -c=400 -minc=10 -n=400 -protocol=https:// -port=443 -domain=www.gladstonebrookes.co.uk -path=/online-claim-form/ -acktimeout=4000
+...........................................................................
+trialConcurrent=10 go look at file /tmp/goout  data speed=90.031498 KiB/s request rate=2.502436 Request/s...................................................................
+trialConcurrent=12 go look at file /tmp/goout  data speed=116.106181 KiB/s request rate=3.227185 Request/s.....................................................................
+trialConcurrent=14 go look at file /tmp/goout  data speed=132.061706 KiB/s request rate=3.670671 Request/s.........................................................................................
+trialConcurrent=16 go look at file /tmp/goout  data speed=118.354553 KiB/s request rate=3.289679 Request/s
+was TOO SLOW (> acktimeout=4000)
 
+Test ended
+```
+So a mere 16 active users can push this sites response times past 4 seconds.
 
 
 
