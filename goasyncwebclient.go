@@ -11,9 +11,6 @@ import (
 )
 
 var urls = []string{
-//  "http://www.rubyconf.org/",
-//  "http://golang.org/",
-//  "http://matt.aimonetti.net/",
 }
 
 type HttpResponse struct {
@@ -128,7 +125,7 @@ func computeTrialIncrement(trialConcurrent int) int {
 
 func main() {
 	protocolPtr := flag.String("protocol", "http://", "protocol prefix to domain e.g. http://")
-	domainPtr := flag.String("domain", "172.16.100.225", "domain(e.g. host name)")
+	domainPtr := flag.String("domain", "127.0.0.1", "domain(e.g. host name)")
 	portPtr := flag.Int("port", 80, "port typically 80 or 443")
 	concurrentPtr := flag.Int("c", 1, "concurrency e.g simultaneous connections number 7000")
 	pathPtr := flag.String("path", "/", "path should start with a / and maybe end with one if also using the -appendi flag")
@@ -169,8 +166,6 @@ func main() {
 			}
 			urls[i] = urlPtr
 
-			//urls = append(urls, fmt.Sprintf("%s%d", "http://ct-lin-1.pgitech.local:5555/", i))
-			//urls = append(urls, fmt.Sprintf("%s", "http://ct-lin-1.pgitech.local/"))
 		}
 
 		results, wasTrialError := asyncHttpGets(urls)
