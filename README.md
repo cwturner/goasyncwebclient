@@ -1,5 +1,5 @@
 # goasyncwebclient
-go language asynchronous web client. Useful for simulating tens of thousands of simultaneous web users to exercise or break a web server.
+go language asynchronous web client. Useful for simulating tens of thousands of simultaneous web users to exercise or break a web server. Downloads Windowsx86-64 Ubuntux86-64
 
 This client will create up to c simultaneous connections
 (separate tcp connections with unique client port numbers and blank initial cookie state)
