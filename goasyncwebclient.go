@@ -2,16 +2,18 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
-var urls = []string{
-}
+var urls = []string{}
 
 type HttpResponse struct {
 	url        string
@@ -32,6 +34,10 @@ func (r *HttpResponse) recDelayMillis() int64 {
 	return r.receivedat.Sub(r.sentat).Nanoseconds() / time.Millisecond.Nanoseconds()
 }
 
+func (r *HttpResponse) generalDelayMillis(generalTime time.Time) int64 {
+	return generalTime.Sub(r.sentat).Nanoseconds() / time.Millisecond.Nanoseconds()
+}
+
 func (r *HttpResponse) bodyLen() int {
 	if r.body != nil {
 		return len(r.body)
@@ -39,7 +45,7 @@ func (r *HttpResponse) bodyLen() int {
 	return 0
 }
 
-func asyncHttpGets(urls []string) ([]*HttpResponse, bool) {
+func asyncHttpGets(urls []string, appendt bool) ([]*HttpResponse, bool) {
 	ch := make(chan *HttpResponse)
 	responses := []*HttpResponse{}
 	wasError := false
@@ -49,10 +55,13 @@ func asyncHttpGets(urls []string) ([]*HttpResponse, bool) {
 	}
 	//client := http.Client{}
 	for _, url := range urls {
-		go func(url string) {
+		go func(url string, appendt bool) {
 			//		fmt.Printf("Fetching %s \n", url)
 			//TODO i would like to return early if error but we are committed to do all urls elsewhere
-
+			clientTime := time.Now().UnixNano() / 1000000
+			if appendt {
+				url = fmt.Sprintf("%s%d", url, clientTime)
+			}
 			req, err := http.NewRequest("GET", url, nil)
 			if err == nil {
 				sentat := time.Now()
@@ -83,7 +92,7 @@ func asyncHttpGets(urls []string) ([]*HttpResponse, bool) {
 					wasError = true
 				}
 			}
-		}(url)
+		}(url, appendt)
 	}
 
 	for {
@@ -131,6 +140,7 @@ func main() {
 	pathPtr := flag.String("path", "/", "path should start with a / and maybe end with one if also using the -appendi flag")
 	nPtr := flag.Int("n", 1, "total number of calls processed. should be a multiple of c")
 	appendiPtr := flag.Bool("appendi", false, "true if the connection index should be appended to url")
+	appendtPtr := flag.Bool("appendt", false, "true if the send timestamp (milliseconds since epoch) should be appended to url")
 	filenamePtr := flag.String("ofile", "/tmp/goout", "filename to write output to")
 	rampToFailPtr := flag.Bool("rampToFail", true, "default true and if true will ramp up the connections until first fail")
 	minConcurrentPtr := flag.Int("minc", 1, "minimum concurrency to start from")
@@ -168,7 +178,7 @@ func main() {
 
 		}
 
-		results, wasTrialError := asyncHttpGets(urls)
+		results, wasTrialError := asyncHttpGets(urls, *appendtPtr)
 		if wasTrialError {
 			wasError = true
 		}
@@ -193,15 +203,40 @@ func main() {
 				if result.receivedat.After(latestRecTime) {
 					latestRecTime = result.receivedat
 				}
-				messPtr = fmt.Sprintf("ackmillis=%d recmillis=%d %s status: %s\n", ackDelay, result.recDelayMillis(), result.url,
+
+				var serverDelayMillis int64 = 0
+
+				if result.bodyLen() > 1 && bytes.IndexRune(result.body, '{') == 0 {
+					//its a json object
+					//see if it has a pong
+					
+					var dat map[string]interface{}
+					if err := json.Unmarshal(result.body, &dat); err != nil {
+						panic(err)
+					}
+					if val, ok := dat["pong"]; ok {
+						var serverTime string = val.(string)
+						var serverTimeInt int64 = 0
+						
+						serverTimeInt, err = strconv.ParseInt(serverTime, 10, 64)
+						if err == nil {
+							serverDelayMillis = result.generalDelayMillis(time.Unix(serverTimeInt/int64(1000), (serverTimeInt%int64(1000))*int64(1000000)))
+						} else {
+							panic(err)
+						}
+
+					}
+
+				}
+				messPtr = fmt.Sprintf("ackmillis=%d recmillis=%d serverDelayMillis=%d bodyLen=%d %s status: %s\n", ackDelay, result.recDelayMillis(), serverDelayMillis, result.bodyLen(), result.url,
 					result.response.Status)
 				//examine those headers and cookies
 				var messCookies string = ""
-				for _ , c := range result.response.Cookies() {
+				for _, c := range result.response.Cookies() {
 					messCookies = fmt.Sprintf("%s%s\n", messCookies, c.String())
 				}
-				messPtr = fmt.Sprintf("%s%s\n", messPtr,  messCookies)
-				
+				messPtr = fmt.Sprintf("%s%s\n", messPtr, messCookies)
+
 			} else if result != nil {
 				ackDelay := result.ackDelayMillis()
 				if ackDelay > *ackTimeoutPtr {
