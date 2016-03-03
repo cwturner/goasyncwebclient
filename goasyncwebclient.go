@@ -45,7 +45,7 @@ func (r *HttpResponse) bodyLen() int {
 	return 0
 }
 
-func asyncHttpGets(urls []string, appendt bool) ([]*HttpResponse, bool) {
+func asyncHttpGets(urls []string, appendt bool, cookiename string, cookievalue string) ([]*HttpResponse, bool) {
 	ch := make(chan *HttpResponse)
 	responses := []*HttpResponse{}
 	wasError := false
@@ -55,7 +55,7 @@ func asyncHttpGets(urls []string, appendt bool) ([]*HttpResponse, bool) {
 	}
 	//client := http.Client{}
 	for _, url := range urls {
-		go func(url string, appendt bool) {
+		go func(url string, appendt bool, cookiename string, cookievalue string) {
 			//		fmt.Printf("Fetching %s \n", url)
 			//TODO i would like to return early if error but we are committed to do all urls elsewhere
 			clientTime := time.Now().UnixNano() / 1000000
@@ -64,6 +64,12 @@ func asyncHttpGets(urls []string, appendt bool) ([]*HttpResponse, bool) {
 			}
 			req, err := http.NewRequest("GET", url, nil)
 			if err == nil {
+				if(cookiename != "" && cookievalue != ""){
+					cookie := &http.Cookie{ Name: cookiename ,
+						Value: cookievalue, 
+					}
+					req.AddCookie(cookie);
+				}
 				sentat := time.Now()
 
 				resp, err := client.Do(req)
@@ -92,7 +98,7 @@ func asyncHttpGets(urls []string, appendt bool) ([]*HttpResponse, bool) {
 					wasError = true
 				}
 			}
-		}(url, appendt)
+		}(url, appendt, cookiename, cookievalue)
 	}
 
 	for {
@@ -145,7 +151,10 @@ func main() {
 	rampToFailPtr := flag.Bool("rampToFail", true, "default true and if true will ramp up the connections until first fail")
 	minConcurrentPtr := flag.Int("minc", 1, "minimum concurrency to start from")
 	ackTimeoutPtr := flag.Int64("acktimeout", 2000, "maximum time in milliseconds to receive some acknowledgement (headers) from server")
-
+    cookieNamePtr := flag.String("cookieName","SESSION","cookie header name e.g. SESSION");
+    cookieValuePtr := flag.String("cookieValue","","cookie header value e.g. 894b4e8a-f830-4d0c-bdbf-d9084eaaa986");
+ 
+ 
 	t0 := time.Now()
 	flag.Parse()
 
@@ -178,7 +187,7 @@ func main() {
 
 		}
 
-		results, wasTrialError := asyncHttpGets(urls, *appendtPtr)
+		results, wasTrialError := asyncHttpGets(urls, *appendtPtr, *cookieNamePtr, *cookieValuePtr)
 		if wasTrialError {
 			wasError = true
 		}

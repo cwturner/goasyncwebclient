@@ -12,12 +12,19 @@ It will then read fully each response
 (again in parallel) timing each one and logging the response time and any server supplied cookies to a file specified by ofile.
 
 Usage of goasyncwebclient.exe:
-*   -acktimeout int
+
+*  -acktimeout int
         maximum time in milliseconds to receive some acknowledgement (headers) from server (default 2000)
 *  -appendi
         true if the connection index should be appended to url
+*  -appendt
+        true if the send timestamp (milliseconds since epoch) should be appended to url
 *  -c int
         concurrency e.g simultaneous connections number 7000 (default 1)
+*  -cookieName string
+        cookie header name e.g. SESSION (default "SESSION")
+*  -cookieValue string
+        cookie header value e.g. 894b4e8a-f830-4d0c-bdbf-d9084eaaa986
 *  -domain string
         domain(e.g. host name) (default "127.0.0.1")
 *  -minc int
@@ -34,6 +41,7 @@ Usage of goasyncwebclient.exe:
         protocol prefix to domain e.g. http:// (default "http://")
 *  -rampToFail
         default true and if true will ramp up the connections until first fail (default true)
+        
 
 ## Examples
 Suppose you have an ngix server listening on port 80 on a linux local host you could invoke goasyncwebclient with no arguments as:-
@@ -120,6 +128,45 @@ was TOO SLOW (> acktimeout=4000)
 Test ended
 ```
 So a mere 16 active users can push this sites response times past 4 seconds.
+
+Here is an example of a test that uses known session and uses a known ping endpoint that returns a known json object
+E.g a spring endpoint such as:-
+```
+@ResponseBody
+	@RequestMapping( "/ping/{clientTime}" )
+	public Map<String, Object> ping( @PathVariable Long clientTime, HttpServletRequest request ) {
+		long nowl = System.currentTimeMillis();
+		
+		String now = Long.toString(nowl);
+		Map<String, Object> map = new LinkedHashMap<String, Object>();
+		map.put( "pong", now);
+	
+		logger.info("ping called now="+now+" clientTime="+clientTime+" serverDelay="+(nowl-clientTime));
+		
+		Enumeration<String> headers = request.getHeaderNames();
+		if(headers != null){
+			while(headers.hasMoreElements()){
+				String header = headers.nextElement();
+				logger.info("header:"+header+"="+request.getHeader(header));
+			}
+		}
+		
+		return map;
+	}
+```
+Can be exercised with :-
+```
+./goasyncwebclient.exe -cookieValue 4709c065-cd74-4062-9f4c-9c2aeb3b1206 -port 8080 -path /admin/ping/ -appendt -c 1000 -n 1000
+trialConcurrent=1 go look at file /tmp/goout  data speed=0.450647 KiB/s request rate=19.227589 Request/s.
+trialConcurrent=2 go look at file /tmp/goout  data speed=0.578507 KiB/s request rate=24.682948 Request/s.
+......
+$ cat /cygdrive/c/tmp/goout
+ackmillis=52 recmillis=52 serverDelayMillis=27 bodyLen=24 http://127.0.0.1:8080/admin/ping/1457013686719 status: 200 OK
+XSRF-TOKEN=1317733b-1787-4e27-8af3-081329099b07; Path=/
+......
+```
+Note that the serverDelayMillis above is derived from the time recorded by the remote target server. So we can see that the server processed the request after 27 milliseconds and the client then received the response after 52 milliseconds.
+
 ## Caveats
 The program truely uses a unique connection and source port for each simulated user and it is easy to run out of open file handles. A default limit for windows might be 7000 and for linux 1000 so some changes of your OS limits may be desirable. E.g. on linux add some lines to /etc/security/limits.conf
 ```
